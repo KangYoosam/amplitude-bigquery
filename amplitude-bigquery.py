@@ -8,11 +8,11 @@ from datetime import datetime, timedelta
 from google.cloud import bigquery, storage
 from os import walk
 
-ACCOUNT_ID = ''
-API_KEY = ''
-API_SECRET = ''
-PROJECT_ID = ''
-CLOUD_STORAGE_BUCKET = ''
+ACCOUNT_ID = '232075'
+API_KEY = 'fe5e3e1638849c7f8712c0e89ba5bc8e'
+API_SECRET = 'cfeddb62532d4d9826fa3feda2177bcd'
+PROJECT_ID = 'd-production-database'
+CLOUD_STORAGE_BUCKET = 'amplitude-bigquery-oned'
 PROPERTIES = ["event_properties", "data", "groups", "group_properties",
               "user_properties"]
 
