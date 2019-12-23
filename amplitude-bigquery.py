@@ -19,6 +19,7 @@ PROPERTIES = ["event_properties", "data", "groups", "group_properties",
 YESTERDAY = (datetime.utcnow().date() - timedelta(days=2)).strftime("%Y%m%d")
 PATH = "amplitude/{id}/".format(id=ACCOUNT_ID)
 
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './bigquery_credentials.json'
 
 def remove_file(file, folder=''):
     folder = folder if folder == '' else folder + '/'
@@ -45,7 +46,7 @@ def file_json(filename):
 
 
 def unzip_gzip(filename, remove_original=True):
-    f = gzip.open(filename, 'rb')
+    f = gzip.open(filename, 'rt', encoding='utf-8')
     file_content = f.read()
     f.close()
 
@@ -110,11 +111,11 @@ def process_line_json(line):
         data['city'] = value_def(parsed['city'])
         data['event_type'] = value_def(parsed['event_type'])
         data['device_carrier'] = value_def(parsed['device_carrier'])
-        data['location_lat'] = value_def(parsed['location_lat'])
+        data['location_lat'] = str(value_def(parsed['location_lat']))
         data['event_time'] = value_def(parsed['event_time'])
         data['platform'] = value_def(parsed['platform'])
         data['is_attribution_event'] = value_def(parsed['is_attribution_event'])
-        data['os_version'] = value_def(parsed['os_version'])
+        # data['os_version'] = str(value_def(parsed['os_version']))
         data['paying'] = value_paying(parsed['paying'])
         data['amplitude_id'] = value_def(parsed['amplitude_id'])
         data['device_type'] = value_def(parsed['device_type'])
@@ -123,7 +124,7 @@ def process_line_json(line):
         data['start_version'] = value_def(parsed['start_version'])
         data['uuid'] = value_def(parsed['uuid'])
         data['version_name'] = value_def(parsed['version_name'])
-        data['location_lng'] = value_def(parsed['location_lng'])
+        data['location_lng'] = str(value_def(parsed['location_lng']))
         data['server_upload_time'] = value_def(parsed['server_upload_time'])
         data['event_id'] = value_def(parsed['event_id'])
         data['device_id'] = value_def(parsed['device_id'])
@@ -141,13 +142,13 @@ def process_line_json(line):
 
         # Loop through DICTs and save all properties
         for property_value in PROPERTIES:
-            for key, value in parsed[property_value].iteritems():
+            for key, value in parsed[property_value].items():
                 value = 'True' if value is True else value
                 value = 'False' if value is False else value
                 properties.append({'property_type': property_value,
                                    'insert_id': value_def(parsed['$insert_id']),
                                    'key': value_def(key),
-                                   'value': value})
+                                   'value': str(value)})
 
     return json.dumps(data), properties
 
@@ -179,8 +180,8 @@ for file in file_list('.gz'):
     lines = [x.strip() for x in lines if x]
 
     # Create a new JSON import file
-    import_events_file = open("amplitude/import/" + file_json(file), "w+")
-    import_properties_file = open("amplitude/import/" + "properties_" +
+    import_events_file = open("amplitude/"+ACCOUNT_ID+"/" + file_json(file), "w+")
+    import_properties_file = open("amplitude/"+ACCOUNT_ID+"/" + "properties_" +
                                   file_json(file), "w+")
 
     # Loop through the JSON lines
@@ -193,9 +194,9 @@ for file in file_list('.gz'):
     # Close the file and upload it for import to Google Cloud Storage
     import_events_file.close()
     import_properties_file.close()
-    upload_file_to_gcs("amplitude/import/" + file_json(file), file_json(file),
+    upload_file_to_gcs("amplitude/"+ACCOUNT_ID+"/" + file_json(file), file_json(file),
                        'import')
-    upload_file_to_gcs("amplitude/import/" + "properties_" + file_json(file),
+    upload_file_to_gcs("amplitude/"+ACCOUNT_ID+"/" + "properties_" + file_json(file),
                        "properties_" + file_json(file), 'import')
 
     # Import data from Google Cloud Storage into Google BigQuery
@@ -206,9 +207,9 @@ for file in file_list('.gz'):
     print("Imported: {file}".format(file=file_json(file)))
 
     # Remove JSON file
-    remove_file(file_json(file), "amplitude/{id}".format(id=ACCOUNT_ID))
-    remove_file(file_json(file), "amplitude/import")
-    remove_file("properties_" + file_json(file), "amplitude/import")
+    # remove_file(file_json(file), "amplitude/{id}".format(id=ACCOUNT_ID))
+    # remove_file(file_json(file), "amplitude/"+ACCOUNT_ID)
+    # remove_file("properties_" + file_json(file), "amplitude/import")
 
 # Remove the original zipfile
 remove_file("amplitude.zip")
