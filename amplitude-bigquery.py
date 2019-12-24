@@ -16,7 +16,6 @@ CLOUD_STORAGE_BUCKET = 'amplitude-bigquery-oned'
 PROPERTIES = ["event_properties", "data", "groups", "group_properties",
               "user_properties"]
 
-YESTERDAY = (datetime.utcnow().date() - timedelta(days=2)).strftime("%Y%m%d")
 PATH = "amplitude/{id}/".format(id=ACCOUNT_ID)
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './bigquery_credentials.json'
@@ -98,44 +97,44 @@ def process_line_json(line):
         data = {}
         properties = []
         data['client_event_time'] = value_def(parsed['client_event_time'])
-        data['ip_address'] = value_def(parsed['ip_address'])
-        data['library'] = value_def(parsed['library'])
-        data['dma'] = value_def(parsed['dma'])
-        data['user_creation_time'] = value_def(parsed['user_creation_time'])
+        # data['ip_address'] = value_def(parsed['ip_address'])
+        # data['library'] = value_def(parsed['library'])
+        # data['dma'] = value_def(parsed['dma'])
+        # data['user_creation_time'] = value_def(parsed['user_creation_time'])
         data['insert_id'] = value_def(parsed['$insert_id'])
-        data['schema'] = value_def(parsed['$schema'])
+        # data['schema'] = value_def(parsed['$schema'])
         data['processed_time'] = "{d}".format(d=datetime.utcnow())
         data['client_upload_time'] = value_def(parsed['client_upload_time'])
-        data['app'] = value_def(parsed['app'])
+        # data['app'] = value_def(parsed['app'])
         data['user_id'] = value_def(parsed['user_id'])
         data['city'] = value_def(parsed['city'])
         data['event_type'] = value_def(parsed['event_type'])
         data['device_carrier'] = value_def(parsed['device_carrier'])
-        data['location_lat'] = str(value_def(parsed['location_lat']))
+        # data['location_lat'] = str(value_def(parsed['location_lat']))
         data['event_time'] = value_def(parsed['event_time'])
         data['platform'] = value_def(parsed['platform'])
-        data['is_attribution_event'] = value_def(parsed['is_attribution_event'])
+        # data['is_attribution_event'] = value_def(parsed['is_attribution_event'])
         # data['os_version'] = str(value_def(parsed['os_version']))
-        data['paying'] = value_paying(parsed['paying'])
-        data['amplitude_id'] = value_def(parsed['amplitude_id'])
+        # data['paying'] = value_paying(parsed['paying'])
+        # data['amplitude_id'] = value_def(parsed['amplitude_id'])
         data['device_type'] = value_def(parsed['device_type'])
-        data['sample_rate'] = value_def(parsed['sample_rate'])
-        data['device_manufacturer'] = value_def(parsed['device_manufacturer'])
-        data['start_version'] = value_def(parsed['start_version'])
+        # data['sample_rate'] = value_def(parsed['sample_rate'])
+        # data['device_manufacturer'] = value_def(parsed['device_manufacturer'])
+        # data['start_version'] = value_def(parsed['start_version'])
         data['uuid'] = value_def(parsed['uuid'])
         data['version_name'] = value_def(parsed['version_name'])
-        data['location_lng'] = str(value_def(parsed['location_lng']))
-        data['server_upload_time'] = value_def(parsed['server_upload_time'])
+        # data['location_lng'] = str(value_def(parsed['location_lng']))
+        # data['server_upload_time'] = value_def(parsed['server_upload_time'])
         data['event_id'] = value_def(parsed['event_id'])
-        data['device_id'] = value_def(parsed['device_id'])
+        # data['device_id'] = value_def(parsed['device_id'])
         data['device_family'] = value_def(parsed['device_family'])
         data['os_name'] = value_def(parsed['os_name'])
         data['adid'] = value_def(parsed['adid'])
-        data['amplitude_event_type'] = value_def(parsed['amplitude_event_type'])
-        data['device_brand'] = value_def(parsed['device_brand'])
+        # data['amplitude_event_type'] = value_def(parsed['amplitude_event_type'])
+        # data['device_brand'] = value_def(parsed['device_brand'])
         data['country'] = value_def(parsed['country'])
-        data['device_model'] = value_def(parsed['device_model'])
-        data['language'] = value_def(parsed['language'])
+        # data['device_model'] = value_def(parsed['device_model'])
+        # data['language'] = value_def(parsed['language'])
         data['region'] = value_def(parsed['region'])
         data['session_id'] = value_def(parsed['session_id'])
         data['idfa'] = value_def(parsed['idfa'])
@@ -155,61 +154,74 @@ def process_line_json(line):
 
 ###############################################################################
 
-# Perform a CURL request to download the export from Amplitude
-os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
-          'https://amplitude.com/api/2/export?start=" + YESTERDAY + "T01&end="
-          + YESTERDAY + "T23'  >> amplitude.zip")
+def main(target_day):
+    # Perform a CURL request to download the export from Amplitude
+    os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
+              'https://amplitude.com/api/2/export?start=" + target_day + "T01&end="
+              + target_day + "T23'  >> amplitude.zip")
 
-# Unzip the file
-unzip_file('amplitude.zip', 'amplitude')
+    # Unzip the file
+    unzip_file('amplitude.zip', 'amplitude')
+
+    upload_file_to_gcs('amplitude.zip', target_day + '.zip', 'export')
+
+    # Loop through all new files, unzip them & remove the .gz
+    for file in file_list('.gz'):
+        print("Parsing file: {name}".format(name=file))
+        unzip_gzip(PATH + file)
+
+        with open(PATH + file_json(file)) as f:
+            lines = f.readlines()
+        lines = [x.strip() for x in lines if x]
+
+        # Create a new JSON import file
+        import_events_file = open("amplitude/"+ACCOUNT_ID+"/" + file_json(file), "w+")
+        import_properties_file = open("amplitude/"+ACCOUNT_ID+"/" + "properties_" +
+                                      file_json(file), "w+")
+
+        # Loop through the JSON lines
+        for line in lines:
+            events_line, properties_lines = process_line_json(line)
+            import_events_file.write(events_line + "\r\n")
+            for property_line in properties_lines:
+                import_properties_file.write(json.dumps(property_line) + "\r\n")
+
+        # Close the file and upload it for import to Google Cloud Storage
+        import_events_file.close()
+        import_properties_file.close()
+        upload_file_to_gcs("amplitude/"+ACCOUNT_ID+"/" + file_json(file), file_json(file),
+                           'import')
+        upload_file_to_gcs("amplitude/"+ACCOUNT_ID+"/" + "properties_" + file_json(file),
+                           "properties_" + file_json(file), 'import')
+
+        # Import data from Google Cloud Storage into Google BigQuery
+        load_into_bigquery(file, 'events_' + target_day)
+        load_into_bigquery("properties_" + file, 'events_properties_' + target_day)
+
+        print("Imported: {file}".format(file=file_json(file)))
+
+        # Remove JSON file
+        # remove_file(file_json(file), "amplitude/{id}".format(id=ACCOUNT_ID))
+        # remove_file(file_json(file), "amplitude/"+ACCOUNT_ID)
+        # remove_file("properties_" + file_json(file), "amplitude/import")
+
+    # Remove the original zipfile
+    remove_file("amplitude.zip")
+
+
+###############################################################################
 
 # Initiate Google BigQuery
 bigquery_client = bigquery.Client(project=PROJECT_ID)
 
 # Initiate Google Cloud Storage
 storage_client = storage.Client()
-upload_file_to_gcs('amplitude.zip', YESTERDAY + '.zip', 'export')
 
-# Loop through all new files, unzip them & remove the .gz
-for file in file_list('.gz'):
-    print("Parsing file: {name}".format(name=file))
-    unzip_gzip(PATH + file)
+# Reference the dataset
+dataset_ref = bigquery_client.dataset('amplitude')
 
-    with open(PATH + file_json(file)) as f:
-        lines = f.readlines()
-    lines = [x.strip() for x in lines if x]
-
-    # Create a new JSON import file
-    import_events_file = open("amplitude/"+ACCOUNT_ID+"/" + file_json(file), "w+")
-    import_properties_file = open("amplitude/"+ACCOUNT_ID+"/" + "properties_" +
-                                  file_json(file), "w+")
-
-    # Loop through the JSON lines
-    for line in lines:
-        events_line, properties_lines = process_line_json(line)
-        import_events_file.write(events_line + "\r\n")
-        for property_line in properties_lines:
-            import_properties_file.write(json.dumps(property_line) + "\r\n")
-
-    # Close the file and upload it for import to Google Cloud Storage
-    import_events_file.close()
-    import_properties_file.close()
-    upload_file_to_gcs("amplitude/"+ACCOUNT_ID+"/" + file_json(file), file_json(file),
-                       'import')
-    upload_file_to_gcs("amplitude/"+ACCOUNT_ID+"/" + "properties_" + file_json(file),
-                       "properties_" + file_json(file), 'import')
-
-    # Import data from Google Cloud Storage into Google BigQuery
-    dataset_ref = bigquery_client.dataset('amplitude')
-    load_into_bigquery(file, 'events$' + YESTERDAY)
-    load_into_bigquery("properties_" + file, 'events_properties')
-
-    print("Imported: {file}".format(file=file_json(file)))
-
-    # Remove JSON file
-    # remove_file(file_json(file), "amplitude/{id}".format(id=ACCOUNT_ID))
-    # remove_file(file_json(file), "amplitude/"+ACCOUNT_ID)
-    # remove_file("properties_" + file_json(file), "amplitude/import")
-
-# Remove the original zipfile
-remove_file("amplitude.zip")
+# n日前からm日前までの期間データをAmplitude => Cloud Storage => BigQueryに移行する
+# for i in range(9,24):
+date = (datetime.utcnow().date() - timedelta(days=2)).strftime("%Y%m%d")
+print('starts importing day of : ' + date)
+main(date)
