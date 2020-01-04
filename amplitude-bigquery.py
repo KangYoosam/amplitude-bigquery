@@ -196,7 +196,7 @@ def main(target_day):
 
         # Import data from Google Cloud Storage into Google BigQuery
         load_into_bigquery(file, 'events_' + target_day)
-        load_into_bigquery("properties_" + file, 'events_properties_' + target_day)
+        load_into_bigquery("properties_" + file, 'properties_' + target_day)
 
         print("Imported: {file}".format(file=file_json(file)))
 
