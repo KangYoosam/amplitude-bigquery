@@ -220,9 +220,9 @@ storage_client = storage.Client()
 # Reference the dataset
 dataset_ref = bigquery_client.dataset('amplitude')
 
-# n日前からm日前までの期間データをAmplitude => Cloud Storage => BigQueryに移行する
-# for i in range(25, 54):
-    # date = (datetime.utcnow().date() - timedelta(days=i)).strftime("%Y%m%d")
-date = (datetime.utcnow().date() - timedelta(days=2)).strftime("%Y%m%d")
-print('starts importing day of : ' + date)
-main(date)
+# n日前からm - 1日前までの期間データをAmplitude => Cloud Storage => BigQueryに移行する
+for i in range(10, 12):
+    date = (datetime.utcnow().date() - timedelta(days=i)).strftime("%Y%m%d")
+# date = (datetime.utcnow().date() - timedelta(days=2)).strftime("%Y%m%d")
+    print('starts importing day of : ' + date)
+    main(date)
