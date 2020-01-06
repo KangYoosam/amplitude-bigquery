@@ -2,3 +2,4 @@ amplitude/
 amplitude.zip
 bigquery_credentials.json
 .DS_Store
+.digdag
