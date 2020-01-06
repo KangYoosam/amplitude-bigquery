@@ -1,0 +1,25 @@
+timezone: Asia/Tokyo
+
+schedule:
+  daily>: 05:00:00
+
+_export:
+  plugin:
+    repositories:
+      - https://jitpack.io
+    dependencies:
+      - com.github.szyn:digdag-slack:0.1.4
+  # Required Params
+  webhook_url: https://hooks.slack.com/services/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
+  # Option Params
+  workflow_name: Amplitude To BigQuery
+
++disp_current_date:
+  echo>: ${moment(session_time).utc().format('YYYY-MM-DD HH:mm:ss Z')}
+
++step1:
+  py>: amplitude-bigquery.py
+  _check:
+    slack>: slack-success.yml
+  _error:
+    slack>: slack-error.yml
