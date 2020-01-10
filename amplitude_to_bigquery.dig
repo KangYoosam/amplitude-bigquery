@@ -10,7 +10,7 @@ _export:
     dependencies:
       - com.github.szyn:digdag-slack:0.1.4
   # Required Params
-  webhook_url: https://hooks.slack.com/services/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
+  webhook_url: {{ env.DIGDAG_SLACK_WEBHOOK }}
   # Option Params
   workflow_name: Amplitude To BigQuery
 
