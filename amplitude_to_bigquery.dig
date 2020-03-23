@@ -18,8 +18,15 @@ _export:
   echo>: ${moment(session_time).utc().format('YYYY-MM-DD HH:mm:ss Z')}
 
 +step1:
-  sh>: python3 amplitude-bigquery.py
+  sh>: python3 amplitude-bigquery.py app
   _check:
     slack>: slack-success.yml
   _error:
     slack>: slack-error.yml
+
+# +step2:
+#  sh>: python3 amplitude-bigquery.py web
+#  _check:
+#    slack>: slack-success.yml
+#  _error:
+#    slack>: slack-error.yml

@@ -5,18 +5,36 @@ import gzip
 import json
 import os
 import zipfile
+import sys
 
 from datetime import datetime, timedelta
 from google.cloud import bigquery, storage
 from os import walk
 
-ACCOUNT_ID = '232075'
-API_KEY = 'fe5e3e1638849c7f8712c0e89ba5bc8e'
-API_SECRET = 'cfeddb62532d4d9826fa3feda2177bcd'
+args = sys.argv
+
+if len(args) < 2:
+    sys.exit('引数を設定してください')
+
+if args[1] == 'app':
+    ACCOUNT_ID = '232075'
+    API_KEY = 'fe5e3e1638849c7f8712c0e89ba5bc8e'
+    API_SECRET = 'cfeddb62532d4d9826fa3feda2177bcd'
+    CLOUD_STORAGE_BUCKET = 'amplitude-bigquery-oned'
+    DATASET_NAME = 'amplitude'
+
+elif args[1] == 'web':
+    ACCOUNT_ID = '250249'
+    API_KEY = '81cf92055f9a75af7963062bdb8d2d9c'
+    API_SECRET = '0749506caba29bf7ecda944afeed8f37'
+    CLOUD_STORAGE_BUCKET = 'amplitude-bigquery-oned-web'
+    DATASET_NAME = 'amplitude_web'
+else:
+    sys.exit('引数が適切じゃありません')
+
 PROJECT_ID = 'd-production-database'
-CLOUD_STORAGE_BUCKET = 'amplitude-bigquery-oned'
 PROPERTIES = ["event_properties", "data", "groups", "group_properties",
-              "user_properties"]
+            "user_properties"]
 
 PATH = "amplitude/{id}/".format(id=ACCOUNT_ID)
 
@@ -220,13 +238,15 @@ bigquery_client = bigquery.Client(project=PROJECT_ID)
 storage_client = storage.Client()
 
 # Reference the dataset
-dataset_ref = bigquery_client.dataset('amplitude')
+dataset_ref = bigquery_client.dataset(DATASET_NAME)
 
 # n日前からm -1日前までの期間データをAmplitude => Cloud Storage => BigQueryに移行する
-# for i in range(2, 4):
-#     date = (datetime.utcnow().date() - timedelta(days=i)).strftime("%Y%m%d")
+for i in range(1, 19):
+    date = (datetime.utcnow().date() - timedelta(days=i)).strftime("%Y%m%d")
+    print('starts importing day of : ' + date)
+    main(date)
 
 # 2日前のデータをAmplitude => Cloud Storage => BigQueryに移行する
-date = (datetime.utcnow().date() - timedelta(days=2)).strftime("%Y%m%d")
-print('starts importing day of : ' + date)
-main(date)
+# date = (datetime.utcnow().date() - timedelta(days=2)).strftime("%Y%m%d")
+# print('starts importing day of : ' + date)
+# main(date)
